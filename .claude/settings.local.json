@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npx --yes create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(npx --yes create-next-app@latest . --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack --disable-git)",
+      "Bash(npx --yes create-next-app@latest al-eman-model-school --ts --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(ps -W)",
+      "Read(//c/Users/Calculator/Downloads/**)",
+      "Bash(powershell -Command \"Stop-Process -Id 2960 -Force\")",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
