@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import PageHeader from "@/components/dashboard/PageHeader";
@@ -10,12 +11,8 @@ import {
   HourglassIcon,
   ClipboardListIcon,
   UserIcon,
-  CalendarIcon,
   PieChartIcon,
   FileTextIcon,
-  ClockIcon,
-  SettingsIcon,
-  ChevronRightIcon,
   InfoIcon,
 } from "@/components/icons";
 
@@ -29,48 +26,44 @@ const reports = [
     icon: UsersIcon,
     title: "Student Report",
     desc: "View and print the list of students with their detailed information.",
+    href: "/dashboard/reports/students",
   },
   {
     icon: CheckSquareIcon,
     title: "Student Attendance Report",
     desc: "View attendance records of students for a selected class and date range.",
+    href: "/dashboard/reports/attendance",
   },
   {
     icon: WalletIcon,
     title: "Fee Report",
     desc: "View fee collection details including paid, pending and partial payments.",
+    href: "/dashboard/reports/fees",
   },
   {
     icon: HourglassIcon,
     title: "Pending Fee Report",
-    desc: "View students with pending fees for 1, 2, 3 or more months.",
+    desc: "View students with pending fees, sorted by how many months are owed.",
+    href: "/dashboard/reports/pending-fees",
   },
   {
     icon: ClipboardListIcon,
     title: "Result Report",
-    desc: "View and print exam results (Mid-term, Final) for students or classes.",
+    desc: "View and print exam results for a selected exam and class.",
+    href: "/dashboard/reports/results",
   },
   {
     icon: UserIcon,
     title: "Teacher Report",
     desc: "View list of teachers with their subjects and assigned classes.",
-  },
-  {
-    icon: CalendarIcon,
-    title: "Teacher Attendance Report",
-    desc: "View teachers' attendance records including present, absent and late.",
+    href: "/dashboard/reports/teachers",
   },
   {
     icon: PieChartIcon,
     title: "Summary Report",
-    desc: "Overall summary of students, attendance, fees and results in one report.",
+    desc: "Overall summary of students, teachers, classes and pending fees.",
+    href: "/dashboard/reports/summary",
   },
-];
-
-const quickActions = [
-  { icon: CalendarIcon, label: "View Report Archive" },
-  { icon: ClockIcon, label: "Scheduled Reports" },
-  { icon: SettingsIcon, label: "Report Settings" },
 ];
 
 export default function ReportsPage() {
@@ -98,31 +91,19 @@ export default function ReportsPage() {
                   </span>
                   <h2 className="text-sm font-bold text-[#0f4d34]">{r.title}</h2>
                   <p className="mt-1 flex-1 text-xs text-gray-500">{r.desc}</p>
-                  <button className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                  <Link
+                    href={r.href}
+                    className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                  >
                     <FileTextIcon className="h-4 w-4" />
                     Generate Report
-                  </button>
+                  </Link>
                 </div>
               ))}
             </div>
 
             {/* Side panel */}
             <div className="space-y-4">
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <h2 className="mb-3 text-sm font-bold text-[#0f4d34]">Quick Actions</h2>
-                <ul className="space-y-1">
-                  {quickActions.map((a) => (
-                    <li key={a.label}>
-                      <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50">
-                        <a.icon className="h-4 w-4 text-[#13714C]" />
-                        <span className="flex-1 text-left">{a.label}</span>
-                        <ChevronRightIcon className="h-4 w-4 text-gray-300" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
               <div className="rounded-2xl border border-[#A2E494]/40 bg-[#A2E494]/10 p-4">
                 <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-[#0f4d34]">
                   <InfoIcon className="h-4 w-4" />
@@ -130,7 +111,8 @@ export default function ReportsPage() {
                 </h2>
                 <p className="text-sm text-gray-600">
                   Reports are based on the information available in the system. Please ensure data is updated
-                  regularly for accurate reports.
+                  regularly for accurate reports. Each report can be printed or exported to PDF using your
+                  browser&apos;s print dialog.
                 </p>
               </div>
             </div>

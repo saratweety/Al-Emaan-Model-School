@@ -55,3 +55,20 @@ export function getSessionMonths(date: Date = new Date()) {
 export function getCurrentMonthValue(date: Date = new Date()) {
   return `${MONTH_NAMES[date.getMonth()].toLowerCase()}-${date.getFullYear()}`;
 }
+
+export function monthValueToDate(value: string): Date {
+  const [monthName, year] = value.split("-");
+  const monthIndex = MONTH_NAMES.findIndex((m) => m.toLowerCase() === monthName);
+  return new Date(Number(year), monthIndex, 1);
+}
+
+export function dateToMonthValue(date: Date): string {
+  return `${MONTH_NAMES[date.getMonth()].toLowerCase()}-${date.getFullYear()}`;
+}
+
+export function monthValueToISODate(value: string): string {
+  const date = monthValueToDate(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}-01`;
+}

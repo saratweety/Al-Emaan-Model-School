@@ -1,55 +1,50 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
 import PageHeader from "@/components/dashboard/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import {
   UsersIcon,
-  UserCheckIcon,
-  UserXIcon,
-  ClockIcon,
+  BriefcaseIcon,
   SearchIcon,
   BookIcon,
   ChevronDownIcon,
   EyeOutlineIcon,
   PencilIcon,
-  TrashIcon,
   CalendarIcon,
   FileTextIcon,
+  InfoIcon,
 } from "@/components/icons";
+import PersonFilesButton from "@/components/dashboard/PersonFilesButton";
+import TeacherRowDeleteButton from "@/components/teachers/TeacherRowDeleteButton";
+import TeacherProfilePicker from "@/components/teachers/TeacherProfilePicker";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentSessionId } from "@/lib/academic-sessions";
+import { getTeacherAttendanceTodayCounts } from "@/lib/teachers-data";
 
 export const metadata: Metadata = {
   title: "Teachers | Al-Emaan Model School",
-  description: "Manage teachers and monitor attendance.",
+  description: "Manage teachers and their class assignments.",
 };
 
-const statCards = [
-  { icon: UsersIcon, iconBg: "bg-[#13714C]", label: "TOTAL TEACHERS", value: "32", sub: "All Staff" },
-  { icon: UserCheckIcon, iconBg: "bg-[#3AB67D]", label: "PRESENT TODAY", value: "28", sub: "87.5%" },
-  { icon: UserXIcon, iconBg: "bg-[#e0645f]", label: "ABSENT TODAY", value: "2", sub: "6.3%", valueColor: "text-red-600" },
-  { icon: ClockIcon, iconBg: "bg-[#3AB67D]", label: "LATE TODAY", value: "2", sub: "6.3%", valueColor: "text-amber-500" },
-];
-
-const teachers = [
-  { name: "Ayesha Khan", gender: "Female", id: "T001", phone: "03418298314", subject: "Mathematics", classTeacher: "Grade 5-A", arrival: "7:45 AM", status: "On Time" },
-  { name: "Ahmad Ali", gender: "Male", id: "T002", phone: "03001234567", subject: "English", classTeacher: "Grade 6-B", arrival: "7:52 AM", status: "On Time" },
-  { name: "Sara Noor", gender: "Female", id: "T003", phone: "03211234567", subject: "Science", classTeacher: "Grade 4-A", arrival: "8:12 AM", status: "Late" },
-  { name: "Hassan Raza", gender: "Male", id: "T004", phone: "03123456789", subject: "Urdu", classTeacher: "—", arrival: "—", status: "Absent" },
-  { name: "Fatima Zahra", gender: "Female", id: "T005", phone: "03453678901", subject: "Computer", classTeacher: "Grade 7-B", arrival: "8:05 AM", status: "On Time" },
-  { name: "Usman Khalid", gender: "Male", id: "T006", phone: "03127654321", subject: "Physics", classTeacher: "Grade 8-A", arrival: "7:48 AM", status: "On Time" },
-];
-
-const statusStyles: Record<string, string> = {
-  "On Time": "bg-green-100 text-green-700",
-  Late: "bg-amber-100 text-amber-700",
-  Absent: "bg-red-100 text-red-700",
+type TeacherRow = {
+  id: string;
+  teacher_code: string;
+  qualification: string | null;
+  experience_years: number | null;
+  photo_url: string | null;
+  cnic_document_url: string | null;
+  certificate_url: string | null;
+  other_document_url: string | null;
+  profiles: { full_name: string } | null;
+  subjects: { name: string } | null;
 };
 
 const quickLinks = [
-  { icon: UsersIcon, title: "Teacher Profile", sub: "View detailed information" },
-  { icon: CalendarIcon, title: "Attendance Report", sub: "Daily attendance record" },
-  { icon: BookIcon, title: "Subject Allocation", sub: "Manage classes & subjects" },
-  { icon: FileTextIcon, title: "Teacher Documents", sub: "View certificates & files" },
+  { icon: CalendarIcon, title: "Attendance Report", sub: "Daily attendance record", href: "/dashboard/teachers/attendance" },
+  { icon: BookIcon, title: "Subject Allocation", sub: "Manage classes & subjects", href: "/dashboard/classes" },
+  { icon: FileTextIcon, title: "Teacher Documents", sub: "View certificates & files", href: "/dashboard/teachers/documents" },
 ];
 
 function initials(name: string) {
@@ -61,7 +56,74 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export default function TeachersPage() {
+export default async function TeachersPage() {
+  const supabase = await createClient();
+
+  const { data: teachers, error } = await supabase
+    .from("teachers")
+    .select(
+      "id, teacher_code, qualification, experience_years, photo_url, cnic_document_url, certificate_url, other_document_url, profiles(full_name), subjects(name)"
+    )
+    .order("teacher_code", { ascending: true })
+    .returns<TeacherRow[]>();
+
+  const photoPaths = (teachers ?? []).map((t) => t.photo_url).filter((p): p is string => Boolean(p));
+  const photoUrlByPath = new Map<string, string>();
+  if (photoPaths.length > 0) {
+    const { data: signed } = await supabase.storage.from("teacher-files").createSignedUrls(photoPaths, 3600);
+    for (const s of signed ?? []) {
+      if (s.signedUrl && !s.error) photoUrlByPath.set(s.path ?? "", s.signedUrl);
+    }
+  }
+
+  const currentSessionId = await getCurrentSessionId();
+
+  const classTeacherByTeacher: Record<string, string> = {};
+  if (currentSessionId) {
+    const { data: rows } = await supabase
+      .from("teacher_assignments")
+      .select("teacher_id, classes(name)")
+      .eq("session_id", currentSessionId)
+      .eq("is_class_teacher", true)
+      .returns<{ teacher_id: string; classes: { name: string } | null }[]>();
+
+    for (const r of rows ?? []) {
+      if (r.classes) classTeacherByTeacher[r.teacher_id] = r.classes.name;
+    }
+  }
+
+  const list = teachers ?? [];
+  const total = list.length;
+  const todayAttendance = await getTeacherAttendanceTodayCounts();
+
+  const statCards = [
+    { icon: UsersIcon, iconBg: "bg-[#13714C]", label: "TOTAL TEACHERS", value: String(total), sub: "All Staff" },
+    {
+      icon: BriefcaseIcon,
+      iconBg: "bg-[#3AB67D]",
+      label: "PRESENT TODAY",
+      value: String(todayAttendance.present),
+      sub: todayAttendance.marked === 0 ? "Not marked yet" : `${todayAttendance.marked} marked`,
+      href: "/dashboard/teachers/attendance",
+    },
+    {
+      icon: BriefcaseIcon,
+      iconBg: "bg-[#e0645f]",
+      label: "ABSENT TODAY",
+      value: String(todayAttendance.absent),
+      sub: todayAttendance.marked === 0 ? "Not marked yet" : `${todayAttendance.marked} marked`,
+      href: "/dashboard/teachers/attendance",
+    },
+    {
+      icon: BriefcaseIcon,
+      iconBg: "bg-amber-500",
+      label: "LATE TODAY",
+      value: String(todayAttendance.late),
+      sub: todayAttendance.marked === 0 ? "Not marked yet" : `${todayAttendance.marked} marked`,
+      href: "/dashboard/teachers/attendance",
+    },
+  ];
+
   return (
     <div className="flex h-screen bg-[#F4F6F5]">
       <Sidebar active="Teachers" />
@@ -73,7 +135,7 @@ export default function TeachersPage() {
           <PageHeader
             icon={UsersIcon}
             title="Teachers"
-            subtitle="Manage teachers and monitor attendance"
+            subtitle="Manage teachers and their class assignments"
             breadcrumb={[{ label: "Dashboard", href: "/dashboard" }, { label: "Teachers" }]}
             actionLabel="Add Teacher"
             actionHref="/dashboard/teachers/add"
@@ -110,93 +172,113 @@ export default function TeachersPage() {
 
           {/* Teachers table */}
           <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
-                <thead>
-                  <tr className="rounded-xl bg-[#A2E494]/15 text-xs font-bold uppercase tracking-wide text-[#0f4d34]/70">
-                    <th className="rounded-l-xl px-3 py-3">#</th>
-                    <th className="px-3 py-3">Teacher Name</th>
-                    <th className="px-3 py-3">Teacher ID</th>
-                    <th className="px-3 py-3">Phone</th>
-                    <th className="px-3 py-3">Subject</th>
-                    <th className="px-3 py-3">Class Teacher</th>
-                    <th className="px-3 py-3">Arrival Today</th>
-                    <th className="px-3 py-3">Status</th>
-                    <th className="rounded-r-xl px-3 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teachers.map((t, i) => (
-                    <tr key={t.id} className="border-b border-gray-50 last:border-0">
-                      <td className="px-3 py-3 text-gray-400">{i + 1}</td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${
-                              t.gender === "Male" ? "bg-[#3AB67D]" : "bg-[#e8608a]"
-                            }`}
-                          >
-                            {initials(t.name)}
-                          </span>
-                          <div>
-                            <p className="font-semibold text-gray-800">{t.name}</p>
-                            <p className="text-xs text-gray-400">{t.gender}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-gray-600">{t.id}</td>
-                      <td className="px-3 py-3 text-gray-600">{t.phone}</td>
-                      <td className="px-3 py-3 text-gray-600">{t.subject}</td>
-                      <td className="px-3 py-3 text-gray-600">{t.classTeacher}</td>
-                      <td className="px-3 py-3 text-gray-600">{t.arrival}</td>
-                      <td className="px-3 py-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[t.status]}`}>
-                          {t.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <button aria-label="View" className="rounded-lg p-1.5 text-[#13714C] hover:bg-[#A2E494]/20">
-                            <EyeOutlineIcon className="h-4 w-4" />
-                          </button>
-                          <button aria-label="Edit" className="rounded-lg p-1.5 text-[#13714C] hover:bg-[#A2E494]/20">
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button aria-label="Delete" className="rounded-lg p-1.5 text-red-500 hover:bg-red-50">
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-gray-500">Showing 1 to 6 of 32 teachers</p>
-              <div className="flex items-center gap-1.5">
-                <button className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-50">‹</button>
-                {[1, 2, 3, 4, 5].map((p) => (
-                  <button
-                    key={p}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                      p === 1 ? "bg-[#13714C] text-white" : "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-50">›</button>
+            {error ? (
+              <div className="flex items-start gap-2 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-600">
+                <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                Couldn&apos;t load teachers: {error.message}
               </div>
-            </div>
+            ) : list.length === 0 ? (
+              <div className="flex items-center gap-2 rounded-xl bg-[#A2E494]/15 p-4 text-sm font-semibold text-[#0f4d34]">
+                <InfoIcon className="h-4 w-4 shrink-0 text-[#13714C]" />
+                No teachers yet. Use &quot;Add Teacher&quot; to register the first one.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead>
+                    <tr className="rounded-xl bg-[#A2E494]/15 text-xs font-bold uppercase tracking-wide text-[#0f4d34]/70">
+                      <th className="rounded-l-xl px-3 py-3">#</th>
+                      <th className="px-3 py-3">Teacher Name</th>
+                      <th className="px-3 py-3">Teacher ID</th>
+                      <th className="px-3 py-3">Subject</th>
+                      <th className="px-3 py-3">Class Teacher</th>
+                      <th className="px-3 py-3">Qualification</th>
+                      <th className="px-3 py-3">Experience</th>
+                      <th className="rounded-r-xl px-3 py-3">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {list.map((t, i) => {
+                      const name = t.profiles?.full_name ?? "—";
+                      return (
+                        <tr key={t.id} className="border-b border-gray-50 last:border-0">
+                          <td className="px-3 py-3 text-gray-400">{i + 1}</td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-3">
+                              {t.photo_url && photoUrlByPath.get(t.photo_url) ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={photoUrlByPath.get(t.photo_url)}
+                                  alt={name}
+                                  className="h-9 w-9 shrink-0 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#3AB67D] text-xs font-bold text-white">
+                                  {initials(name)}
+                                </span>
+                              )}
+                              <span className="font-semibold text-gray-800">{name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-gray-600">{t.teacher_code}</td>
+                          <td className="px-3 py-3 text-gray-600">{t.subjects?.name ?? "—"}</td>
+                          <td className="px-3 py-3 text-gray-600">{classTeacherByTeacher[t.id] ?? "—"}</td>
+                          <td className="px-3 py-3 text-gray-600">{t.qualification ?? "—"}</td>
+                          <td className="px-3 py-3 text-gray-600">
+                            {t.experience_years !== null ? `${t.experience_years} yrs` : "—"}
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/dashboard/teachers/${t.id}`}
+                                aria-label="View"
+                                className="rounded-lg p-1.5 text-[#13714C] hover:bg-[#A2E494]/20"
+                              >
+                                <EyeOutlineIcon className="h-4 w-4" />
+                              </Link>
+                              <PersonFilesButton
+                                bucket="teacher-files"
+                                personName={name}
+                                files={[
+                                  { label: "CNIC Copy", path: t.cnic_document_url },
+                                  { label: "Educational Certificate", path: t.certificate_url },
+                                  { label: "Other Document", path: t.other_document_url },
+                                ].filter((f): f is { label: string; path: string } => Boolean(f.path))}
+                              />
+                              <Link
+                                href={`/dashboard/teachers/${t.id}/edit`}
+                                aria-label="Edit"
+                                className="rounded-lg p-1.5 text-[#13714C] hover:bg-[#A2E494]/20"
+                              >
+                                <PencilIcon className="h-4 w-4" />
+                              </Link>
+                              <TeacherRowDeleteButton teacherId={t.id} teacherName={name} />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {list.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-500">Showing {list.length} of {list.length} teachers</p>
+              </div>
+            )}
           </div>
 
           {/* Quick links */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {quickLinks.map(({ icon: Icon, title, sub }) => (
-              <button
+            <TeacherProfilePicker
+              teachers={list.map((t) => ({ id: t.id, name: t.profiles?.full_name ?? "—", teacherCode: t.teacher_code }))}
+            />
+            {quickLinks.map(({ icon: Icon, title, sub, href }) => (
+              <Link
                 key={title}
+                href={href}
                 className="flex items-center gap-3 rounded-2xl border border-[#A2E494]/40 bg-[#A2E494]/10 p-4 text-left hover:bg-[#A2E494]/20"
               >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#13714C] text-white">
@@ -206,7 +288,7 @@ export default function TeachersPage() {
                   <p className="truncate text-sm font-bold text-[#0f4d34]">{title}</p>
                   <p className="truncate text-xs text-gray-500">{sub}</p>
                 </div>
-              </button>
+              </Link>
             ))}
           </div>
         </main>

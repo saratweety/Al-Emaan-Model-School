@@ -4,7 +4,9 @@ import {
   HomeIcon,
   GraduationCapIcon,
   UsersIcon,
+  FamilyIcon,
   BuildingIcon,
+  BookIcon,
   CalendarIcon,
   CheckSquareIcon,
   WalletIcon,
@@ -16,23 +18,33 @@ import {
   SettingsIcon,
 } from "@/components/icons";
 
-const navItems: { label: string; icon: typeof HomeIcon; href: string; badge?: number }[] = [
+export type SidebarNavItem = { label: string; icon: typeof HomeIcon; href: string; badge?: number };
+
+const navItems: SidebarNavItem[] = [
   { label: "Dashboard", icon: HomeIcon, href: "/dashboard" },
   { label: "Students", icon: GraduationCapIcon, href: "/dashboard/students" },
+  { label: "Parents", icon: FamilyIcon, href: "/dashboard/parents" },
   { label: "Teachers", icon: UsersIcon, href: "/dashboard/teachers" },
   { label: "Classes", icon: BuildingIcon, href: "/dashboard/classes" },
+  { label: "Subjects", icon: BookIcon, href: "/dashboard/subjects" },
   { label: "Timetable", icon: CalendarIcon, href: "/dashboard/timetable" },
   { label: "Attendance", icon: CheckSquareIcon, href: "/dashboard/attendance" },
   { label: "Fees", icon: WalletIcon, href: "/dashboard/fees" },
   { label: "Exams", icon: AwardIcon, href: "/dashboard/exams" },
   { label: "Results", icon: BarChartIcon, href: "/dashboard/results" },
   { label: "Homework", icon: ClipboardListIcon, href: "/dashboard/homework" },
-  { label: "Notices", icon: BellIcon, href: "/dashboard/notices", badge: 3 },
+  { label: "Notices", icon: BellIcon, href: "/dashboard/notices" },
   { label: "Reports", icon: ReportIcon, href: "/dashboard/reports" },
   { label: "Settings", icon: SettingsIcon, href: "/dashboard/settings" },
 ];
 
-export default function Sidebar({ active = "Dashboard" }: { active?: string }) {
+export default function Sidebar({
+  active = "Dashboard",
+  items = navItems,
+}: {
+  active?: string;
+  items?: SidebarNavItem[];
+}) {
   return (
     <aside className="sidebar-scroll relative hidden h-screen w-[230px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-b from-[#13714C] via-[#3AB67D] to-[#A2E494] md:flex">
       {/* Brand */}
@@ -59,7 +71,7 @@ export default function Sidebar({ active = "Dashboard" }: { active?: string }) {
 
       {/* Nav */}
       <nav className="flex shrink-0 flex-col gap-[10px] px-[14px] pb-[18px] pt-1.5">
-        {navItems.map(({ label, icon: Icon, href, badge }) => {
+        {items.map(({ label, icon: Icon, href, badge }) => {
           const isActive = label === active;
           return (
             <Link

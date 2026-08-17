@@ -159,6 +159,17 @@ export function UsersIcon({ className = "" }: { className?: string }) {
   );
 }
 
+export function FamilyIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="8" cy="7" r="3.2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M2.5 19.5c0.9-3.4 3.2-5.2 5.5-5.2s4.6 1.8 5.5 5.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="17.5" cy="11" r="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M13.8 19.5c0.6-2.6 2.1-4 3.7-4s3.1 1.4 3.7 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function BuildingIcon({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>

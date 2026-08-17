@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/lib/toast";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import {
   UserIcon,
   LockIcon,
-  UserPlusBadgeIcon,
   LogInBadgeIcon,
   EyeIcon,
   MapPinIcon,
@@ -15,7 +18,11 @@ import {
   ShieldCheckIcon,
 } from "./icons";
 
-type Mode = "login" | "signup";
+const roleRedirects: Record<string, string> = {
+  principal: "/dashboard",
+  teacher: "/teacher",
+  parent: "/parent",
+};
 
 const footerItems = [
   { Icon: MapPinIcon, lines: ["Allama Iqbal Town, Basirpur,", "Lahore, Pakistan"] },
@@ -26,13 +33,82 @@ const footerItems = [
 
 export default function AuthCard() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("login");
+  const { showToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
-  const isLogin = mode === "login";
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSending, setForgotSending] = useState(false);
+
+  async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    router.push("/dashboard");
+
+    setLoading(true);
+    setErrorMessage("");
+
+    const supabase = createClient();
+
+    // 1. Login with Supabase Auth
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    if (authError || !authData.user) {
+      setErrorMessage("Invalid email or password.");
+      setLoading(false);
+      return;
+    }
+
+    // 2. Get this user's profile
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", authData.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      setErrorMessage("User profile was not found.");
+      setLoading(false);
+      return;
+    }
+
+    // 3. Redirect according to role
+    const destination = roleRedirects[profile.role as string];
+    if (!destination) {
+      setErrorMessage("Your account does not have a valid role.");
+      setLoading(false);
+      return;
+    }
+
+    router.push(destination);
+  }
+
+  async function handleForgotPassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setForgotSending(true);
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setForgotSending(false);
+
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+
+    showToast("If that email is registered, a reset link has been sent.", "success");
+    setForgotOpen(false);
+    setForgotEmail("");
   }
 
   return (
@@ -80,46 +156,27 @@ export default function AuthCard() {
 
         {/* Right form panel */}
         <div className="flex w-full flex-col items-center justify-center overflow-y-auto px-6 py-6 sm:px-16">
-          <div key={mode} className="animate-auth-zoom flex w-full flex-col items-center">
+          <div className="animate-auth-zoom flex w-full flex-col items-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#3AB67D] to-[#13714C] text-white shadow-lg">
-              {isLogin ? (
-                <LogInBadgeIcon className="h-8 w-8" />
-              ) : (
-                <UserPlusBadgeIcon className="h-8 w-8" />
-              )}
+              <LogInBadgeIcon className="h-8 w-8" />
             </div>
 
-            <h2 className="mt-3 text-3xl font-extrabold tracking-wide text-[#0f4d34]">
-              {isLogin ? "LOGIN" : "SIGN UP"}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              {isLogin ? "Login to your account" : "Create your account"}
-            </p>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-wide text-[#0f4d34]">LOGIN</h2>
+            <p className="mt-1 text-sm text-gray-500">Login to your account</p>
 
-            <form onSubmit={handleSubmit} className="mt-6 w-full max-w-sm space-y-4">
+            <form onSubmit={handleLogin} className="mt-6 w-full max-w-sm space-y-4">
               <div className="relative">
                 <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
-                  type="text"
+                  type="email"
                   required
-                  placeholder="Username"
-                  autoComplete="username"
+                  placeholder="Email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 py-3.5 pl-12 pr-4 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
                 />
               </div>
-
-              {!isLogin && (
-                <div className="relative">
-                  <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    required
-                    placeholder="Full Name"
-                    autoComplete="name"
-                    className="w-full rounded-xl border border-gray-200 py-3.5 pl-12 pr-4 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
-                  />
-                </div>
-              )}
 
               <div className="relative">
                 <LockIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -127,7 +184,9 @@ export default function AuthCard() {
                   type={showPassword ? "text" : "password"}
                   required
                   placeholder="Password"
-                  autoComplete={isLogin ? "current-password" : "new-password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 py-3.5 pl-12 pr-11 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
                 />
                 <button
@@ -140,32 +199,30 @@ export default function AuthCard() {
                 </button>
               </div>
 
-              {isLogin && (
-                <div className="flex justify-end">
-                  <a href="#" className="text-xs font-semibold text-[#13714C] hover:underline">
-                    Forgot password?
-                  </a>
-                </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setForgotOpen(true)}
+                  className="text-xs font-semibold text-[#13714C] hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              {errorMessage && (
+                <p className="rounded-xl bg-red-50 px-4 py-2.5 text-center text-sm font-semibold text-red-600">
+                  {errorMessage}
+                </p>
               )}
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-[#3AB67D] to-[#13714C] py-3.5 text-sm font-bold tracking-wide text-white shadow-lg transition hover:brightness-110"
+                disabled={loading}
+                className="w-full rounded-xl bg-gradient-to-r from-[#3AB67D] to-[#13714C] py-3.5 text-sm font-bold tracking-wide text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isLogin ? "SIGN IN" : "SIGN UP"}
+                {loading ? "SIGNING IN..." : "SIGN IN"}
               </button>
             </form>
-
-            <p className="mt-5 text-sm text-gray-500">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button
-                type="button"
-                onClick={() => setMode(isLogin ? "signup" : "login")}
-                className="font-bold text-[#13714C] hover:underline"
-              >
-                {isLogin ? "SIGN UP" : "LOGIN"}
-              </button>
-            </p>
           </div>
         </div>
       </div>
@@ -185,6 +242,34 @@ export default function AuthCard() {
           </div>
         ))}
       </footer>
+
+      <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Reset your password">
+        <form onSubmit={handleForgotPassword} className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Enter your account email and we&apos;ll send you a link to set a new password.
+          </p>
+          <div className="relative">
+            <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="email"
+              required
+              placeholder="Email"
+              autoComplete="email"
+              value={forgotEmail}
+              onChange={(e) => setForgotEmail(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setForgotOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={forgotSending}>
+              Send Reset Link
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

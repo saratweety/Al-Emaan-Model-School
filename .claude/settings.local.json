@@ -8,7 +8,28 @@
       "Bash(ps -W)",
       "Read(//c/Users/Calculator/Downloads/**)",
       "Bash(powershell -Command \"Stop-Process -Id 2960 -Force\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npx supabase *)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__execute_sql",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__list_projects",
+      "mcp__supabase__list_migrations",
+      "Bash(npx next *)",
+      "Bash(npm run *)",
+      "Bash(echo \"\")",
+      "Bash(echo \"# SUPABASE_SERVICE_ROLE_KEY=  <- add your service_role secret here \\(Supabase Dashboard > Project Settings > API\\), then remove the #\")",
+      "Bash(xargs grep -l \"set-state-in-effect\")",
+      "Bash(node -p \"require\\('./package.json'\\).dependencies.next\")",
+      "Bash(node -p \"JSON.stringify\\(require\\('./package.json'\\).scripts, null, 2\\)\")",
+      "Bash(curl -s -o /tmp/resp.html -w \"HTTP_STATUS:%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(curl -s -o /tmp/resp2.html -w \"HTTP_STATUS:%{http_code}\\\\n\" http://localhost:3000/dashboard)",
+      "mcp__supabase__query_logs"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
