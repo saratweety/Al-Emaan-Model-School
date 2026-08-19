@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import TeacherSidebar from "@/components/teacher/Sidebar";
-import TeacherTopbar from "@/components/teacher/Topbar";
+import Sidebar from "@/components/dashboard/Sidebar";
+import Topbar from "@/components/dashboard/Topbar";
 import PageHeader from "@/components/dashboard/PageHeader";
 import ProfileForm from "@/components/ProfileForm";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
-import { SettingsIcon, UserIcon, LockIcon } from "@/components/icons";
+import { UserIcon, LockIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Settings | Al-Emaan Model School",
-  description: "View your profile and update your password.",
+  title: "My Profile | Al-Emaan Model School",
+  description: "View and update your profile information and password.",
 };
 
-export default async function TeacherSettingsPage() {
+export default async function PrincipalProfilePage() {
   const supabase = await createClient();
 
   const {
@@ -27,17 +27,21 @@ export default async function TeacherSettingsPage() {
 
   return (
     <div className="flex h-screen bg-[#F4F6F5]">
-      <TeacherSidebar active="Settings" />
+      <Sidebar active="Settings" />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-        <TeacherTopbar />
+        <Topbar />
 
         <main className="flex-1 space-y-4 p-4 sm:p-6">
           <PageHeader
-            icon={SettingsIcon}
-            title="Settings"
-            subtitle="View your profile information and update your password"
-            breadcrumb={[{ label: "Dashboard", href: "/teacher" }, { label: "Settings" }]}
+            icon={UserIcon}
+            title="My Profile"
+            subtitle="View and update your profile information and password"
+            breadcrumb={[
+              { label: "Dashboard", href: "/dashboard" },
+              { label: "Settings", href: "/dashboard/settings" },
+              { label: "My Profile" },
+            ]}
           />
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
@@ -45,15 +49,6 @@ export default async function TeacherSettingsPage() {
               <UserIcon className="h-4 w-4" />
               Profile Information
             </h2>
-            <div className="mb-4">
-              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Role</label>
-              <input
-                type="text"
-                readOnly
-                value="Teacher"
-                className="w-full rounded-xl border border-gray-200 bg-[#F4F6F5] px-4 py-2.5 text-sm font-semibold text-gray-600 outline-none sm:w-1/2"
-              />
-            </div>
             <ProfileForm
               initialFullName={profile?.full_name ?? ""}
               initialUsername={profile?.username ?? ""}

@@ -134,7 +134,6 @@ export default async function DashboardPage() {
                         <th className="pb-1.5 font-medium">#</th>
                         <th className="pb-1.5 font-medium">Name</th>
                         <th className="pb-1.5 font-medium">Time</th>
-                        <th className="pb-1.5 font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -143,11 +142,6 @@ export default async function DashboardPage() {
                           <td className="py-1.5 text-gray-400">{i + 1}</td>
                           <td className="py-1.5 font-medium text-gray-700">{t.name}</td>
                           <td className="py-1.5 text-gray-400">—</td>
-                          <td className="py-1.5">
-                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-500">
-                              Not Tracked
-                            </span>
-                          </td>
                         </tr>
                       ))}
                     </tbody>

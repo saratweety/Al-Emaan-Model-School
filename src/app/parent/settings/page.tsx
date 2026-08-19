@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import ParentSidebar from "@/components/parent/Sidebar";
 import ParentTopbar from "@/components/parent/Topbar";
 import PageHeader from "@/components/dashboard/PageHeader";
+import ProfileForm from "@/components/ProfileForm";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
-import { SettingsIcon, UserIcon, LockIcon, PhoneIcon, MailIcon, InfoIcon } from "@/components/icons";
+import { SettingsIcon, UserIcon, LockIcon, PhoneIcon, InfoIcon } from "@/components/icons";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -47,45 +48,28 @@ export default async function ParentSettingsPage() {
               </h2>
               <p className="mb-4 text-xs text-gray-400">View and update your profile information.</p>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-gray-700">Full Name</label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={profile?.full_name ?? "—"}
-                    className="w-full rounded-xl border border-gray-200 bg-[#F4F6F5] px-4 py-2.5 text-sm font-semibold text-gray-600 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <MailIcon className="h-3.5 w-3.5 text-gray-400" />
-                    Username / Email
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={profile?.username ?? user?.email ?? "—"}
-                    className="w-full rounded-xl border border-gray-200 bg-[#F4F6F5] px-4 py-2.5 text-sm font-semibold text-gray-600 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                    <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    readOnly
-                    value={profile?.phone ?? "—"}
-                    className="w-full rounded-xl border border-gray-200 bg-[#F4F6F5] px-4 py-2.5 text-sm font-semibold text-gray-600 outline-none"
-                  />
-                </div>
+              <div className="mb-4">
+                <label className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                  <PhoneIcon className="h-3.5 w-3.5 text-gray-400" />
+                  Contact Number
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={profile?.phone ?? "—"}
+                  className="w-full rounded-xl border border-gray-200 bg-[#F4F6F5] px-4 py-2.5 text-sm font-semibold text-gray-600 outline-none"
+                />
               </div>
+
+              <ProfileForm
+                initialFullName={profile?.full_name ?? ""}
+                initialUsername={profile?.username ?? ""}
+                initialEmail={user?.email ?? ""}
+              />
 
               <div className="mt-4 flex items-start gap-2 rounded-xl bg-[#A2E494]/15 p-3.5 text-sm text-[#0f4d34]">
                 <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#13714C]" />
-                Contact the school office to update your email or phone number.
+                Contact the school office to update your contact number. Changing your username, email, or password is up to you.
               </div>
             </section>
 

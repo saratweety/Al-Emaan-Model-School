@@ -16,7 +16,7 @@ function getGreeting(hour: number) {
 export default function Topbar({
   roleName = "Principal",
   roleLabel = "Administrator",
-  profileHref,
+  profileHref = "/dashboard/settings/profile",
 }: {
   roleName?: string;
   roleLabel?: string;
