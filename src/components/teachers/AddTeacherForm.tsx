@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/lib/toast";
 import { createTeacherAccount } from "@/app/dashboard/teachers/add/actions";
-import { updateTeacher } from "@/app/dashboard/teachers/[id]/actions";
+import { updateTeacher, setTeacherPassword } from "@/app/dashboard/teachers/[id]/actions";
 import type { Subject } from "@/lib/subjects-data";
 import { UserIcon, CameraIcon, BriefcaseIcon, FileTextIcon, LockIcon, EyeIcon, XIcon, SaveIcon } from "@/components/icons";
 import FileDropzone from "@/components/ui/FileDropzone";
+import SetPasswordModal from "@/components/ui/SetPasswordModal";
 
 export type EditableTeacher = {
   id: string;
@@ -49,6 +50,7 @@ export default function AddTeacherForm({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -70,6 +72,7 @@ export default function AddTeacherForm({
   }
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Personal Information */}
       <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
@@ -316,6 +319,19 @@ export default function AddTeacherForm({
               </div>
             </>
           )}
+          {isEditing && (
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-gray-700">Password</label>
+              <button
+                type="button"
+                onClick={() => setPasswordModalOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                <LockIcon className="h-4 w-4" />
+                Reset Password
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-end gap-3 border-t border-gray-100 pt-4">
@@ -337,5 +353,18 @@ export default function AddTeacherForm({
         </div>
       </section>
     </form>
+
+      {isEditing && (
+        <SetPasswordModal
+          open={passwordModalOpen}
+          onClose={() => setPasswordModalOpen(false)}
+          onSubmit={async (newPassword) => {
+            const result = await setTeacherPassword(teacher!.id, newPassword);
+            if (result.success) showToast("Password updated.", "success");
+            return result;
+          }}
+        />
+      )}
+    </>
   );
 }

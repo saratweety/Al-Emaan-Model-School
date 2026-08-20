@@ -29,9 +29,10 @@ import {
   linkChildToParent,
   setParentActive,
   updateParent,
-  sendParentPasswordReset,
+  setParentPassword,
 } from "@/app/dashboard/parents/actions";
 import type { ParentAccount, LinkedChild, LinkableStudent } from "@/lib/parents-list-data";
+import SetPasswordModal from "@/components/ui/SetPasswordModal";
 
 const AVATAR_COLORS = ["bg-[#13714C]", "bg-blue-500", "bg-orange-500", "bg-purple-500", "bg-[#e8608a]"];
 
@@ -51,6 +52,7 @@ export default function ParentsManager({
   const [childrenFilter, setChildrenFilter] = useState<"All" | "1" | "2" | "3+">("All");
   const [rowMenuId, setRowMenuId] = useState<string | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [passwordModalParentId, setPasswordModalParentId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -366,10 +368,21 @@ export default function ParentsManager({
                 parent={menuParent}
                 onClose={() => setRowMenuId(null)}
                 onEdit={() => setPanel({ type: "view", parentId: menuParent.id, startEditing: true })}
+                onResetPassword={() => setPasswordModalParentId(menuParent.id)}
               />
             </RowMenuPortal>
           );
         })()}
+
+      <SetPasswordModal
+        open={Boolean(passwordModalParentId)}
+        onClose={() => setPasswordModalParentId(null)}
+        onSubmit={async (newPassword) => {
+          const result = await setParentPassword(passwordModalParentId!, newPassword);
+          if (result.success) showToast("Password updated.", "success");
+          return result;
+        }}
+      />
     </>
   );
 }
@@ -397,7 +410,17 @@ function RowMenuPortal({
   );
 }
 
-function ParentRowMenu({ parent, onClose, onEdit }: { parent: ParentAccount; onClose: () => void; onEdit: () => void }) {
+function ParentRowMenu({
+  parent,
+  onClose,
+  onEdit,
+  onResetPassword,
+}: {
+  parent: ParentAccount;
+  onClose: () => void;
+  onEdit: () => void;
+  onResetPassword: () => void;
+}) {
   const router = useRouter();
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -415,18 +438,6 @@ function ParentRowMenu({ parent, onClose, onEdit }: { parent: ParentAccount; onC
     });
   }
 
-  function resetPassword() {
-    startTransition(async () => {
-      const result = await sendParentPasswordReset(parent.id);
-      onClose();
-      if (!result.success) {
-        showToast(result.error, "error");
-        return;
-      }
-      showToast(`Password reset email sent to ${parent.email}.`, "success");
-    });
-  }
-
   return (
     <>
       <button
@@ -441,9 +452,11 @@ function ParentRowMenu({ parent, onClose, onEdit }: { parent: ParentAccount; onC
       </button>
       <button
         type="button"
-        disabled={isPending}
-        onClick={resetPassword}
-        className="block w-full px-3.5 py-2 text-left text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+        onClick={() => {
+          onClose();
+          onResetPassword();
+        }}
+        className="block w-full px-3.5 py-2 text-left text-xs font-semibold text-gray-600 hover:bg-gray-50"
       >
         Reset Password
       </button>
@@ -481,6 +494,7 @@ function ParentDetailsPanel({
   const [editPhone, setEditPhone] = useState(parent.phone);
   const [editEmail, setEditEmail] = useState(parent.email);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   const alreadyLinkedIds = new Set(parent.children.map((c) => c.id));
   const candidates = linkableStudents.filter((s) => !alreadyLinkedIds.has(s.id));
@@ -505,17 +519,6 @@ function ParentDetailsPanel({
     showToast("Parent details updated.", "success");
     setEditing(false);
     router.refresh();
-  }
-
-  function resetPassword() {
-    startTransition(async () => {
-      const result = await sendParentPasswordReset(parent.id);
-      if (!result.success) {
-        showToast(result.error, "error");
-        return;
-      }
-      showToast(`Password reset email sent to ${parent.email}.`, "success");
-    });
   }
 
   function handleLink(studentId: string) {
@@ -622,9 +625,8 @@ function ParentDetailsPanel({
             </button>
             <button
               type="button"
-              disabled={isPending}
-              onClick={resetPassword}
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+              onClick={() => setPasswordModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-sm font-semibold text-gray-600 hover:border-gray-300 hover:bg-gray-50"
             >
               <LockIcon className="h-3.5 w-3.5" />
               Reset
@@ -632,6 +634,16 @@ function ParentDetailsPanel({
           </div>
         </>
       )}
+
+      <SetPasswordModal
+        open={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        onSubmit={async (newPassword) => {
+          const result = await setParentPassword(parent.id, newPassword);
+          if (result.success) showToast("Password updated.", "success");
+          return result;
+        }}
+      />
 
       <div>
         <div className="mb-2 flex items-center justify-between">

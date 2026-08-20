@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/lib/toast";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
+import { isLikelyPhone } from "@/lib/phone";
+import { loginWithPhone } from "@/lib/phone-auth-actions";
 import {
   UserIcon,
   LockIcon,
@@ -36,7 +38,7 @@ export default function AuthCard() {
   const { showToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,12 +53,25 @@ export default function AuthCard() {
     setLoading(true);
     setErrorMessage("");
 
+    if (isLikelyPhone(identifier)) {
+      const result = await loginWithPhone({ phone: identifier, password });
+      setLoading(false);
+
+      if (!result.success) {
+        setErrorMessage(result.error);
+        return;
+      }
+
+      router.push(roleRedirects[result.role] ?? "/");
+      return;
+    }
+
     const supabase = createClient();
 
     // 1. Login with Supabase Auth
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
-        email,
+        email: identifier,
         password,
       });
 
@@ -92,6 +107,9 @@ export default function AuthCard() {
 
   async function handleForgotPassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    if (isLikelyPhone(forgotEmail)) return;
+
     setForgotSending(true);
 
     const supabase = createClient();
@@ -168,12 +186,12 @@ export default function AuthCard() {
               <div className="relative">
                 <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  placeholder="Email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email or Phone Number"
+                  autoComplete="username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 py-3.5 pl-12 pr-4 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
                 />
               </div>
@@ -243,32 +261,67 @@ export default function AuthCard() {
         ))}
       </footer>
 
-      <Modal open={forgotOpen} onClose={() => setForgotOpen(false)} title="Reset your password">
-        <form onSubmit={handleForgotPassword} className="space-y-4">
-          <p className="text-sm text-gray-500">
-            Enter your account email and we&apos;ll send you a link to set a new password.
-          </p>
-          <div className="relative">
-            <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-            <input
-              type="email"
-              required
-              placeholder="Email"
-              autoComplete="email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
-            />
+      <Modal
+        open={forgotOpen}
+        onClose={() => {
+          setForgotOpen(false);
+          setForgotEmail("");
+        }}
+        title="Reset your password"
+      >
+        {isLikelyPhone(forgotEmail) ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Password resets for teacher and parent accounts are handled at the school office. Please visit in
+              person with valid ID.
+            </p>
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setForgotOpen(false);
+                  setForgotEmail("");
+                }}
+              >
+                Close
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setForgotOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={forgotSending}>
-              Send Reset Link
-            </Button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Enter your account email, or your phone number if you&apos;re a teacher or parent.
+            </p>
+            <div className="relative">
+              <UserIcon className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                required
+                placeholder="Email or Phone Number"
+                autoComplete="username"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm text-gray-800 outline-none transition focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/40"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setForgotOpen(false);
+                  setForgotEmail("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={forgotSending}>
+                Send Reset Link
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

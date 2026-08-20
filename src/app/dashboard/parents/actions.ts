@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { requirePrincipal } from "@/lib/principal-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -169,20 +168,23 @@ export async function setParentActive(parentId: string, active: boolean): Promis
   return { success: true };
 }
 
-export async function sendParentPasswordReset(parentId: string): Promise<ActionResult> {
-  const { supabase, userId, error } = await requirePrincipal();
-  if (error || !userId) return { success: false, error: error ?? "Not authorized." };
+export async function setParentPassword(parentId: string, newPassword: string): Promise<ActionResult> {
+  const { error } = await requirePrincipal();
+  if (error) return { success: false, error };
 
-  const { data: profile } = await supabase.from("profiles").select("username").eq("id", parentId).maybeSingle();
-  if (!profile?.username) return { success: false, error: "This parent has no email on file." };
+  if (newPassword.length < 6) {
+    return { success: false, error: "Password must be at least 6 characters." };
+  }
 
-  const headerList = await headers();
-  const origin = headerList.get("origin") ?? `https://${headerList.get("host")}`;
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Admin client is not configured." };
+  }
 
-  const { error: resetError } = await supabase.auth.resetPasswordForEmail(profile.username, {
-    redirectTo: `${origin}/reset-password`,
-  });
+  const { error: authError } = await admin.auth.admin.updateUserById(parentId, { password: newPassword });
+  if (authError) return { success: false, error: authError.message };
 
-  if (resetError) return { success: false, error: resetError.message };
   return { success: true };
 }
