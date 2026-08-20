@@ -27,7 +27,8 @@
       "Bash(curl -s -o /tmp/resp.html -w \"HTTP_STATUS:%{http_code}\\\\n\" http://localhost:3000/)",
       "Bash(curl -s -o /tmp/resp2.html -w \"HTTP_STATUS:%{http_code}\\\\n\" http://localhost:3000/dashboard)",
       "mcp__supabase__query_logs",
-      "Bash(curl -s http://localhost:3000/ -w \"\\\\nHTTP_CODE:%{http_code}\\\\n\")"
+      "Bash(curl -s http://localhost:3000/ -w \"\\\\nHTTP_CODE:%{http_code}\\\\n\")",
+      "Bash(vercel whoami *)"
     ]
   },
   "enabledMcpjsonServers": [
