@@ -10,8 +10,7 @@ export default function AttendanceClassFilter({ classes, value }: { classes: { i
 
   function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const params = new URLSearchParams(searchParams.toString());
-    if (e.target.value) params.set("class", e.target.value);
-    else params.delete("class");
+    params.set("class", e.target.value);
     router.push(`${pathname}?${params.toString()}`);
   }
 
@@ -24,7 +23,6 @@ export default function AttendanceClassFilter({ classes, value }: { classes: { i
         onChange={handleChange}
         className="appearance-none rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-9 text-sm font-semibold text-gray-600 outline-none hover:bg-gray-50 focus:border-[#3AB67D] focus:ring-4 focus:ring-[#A2E494]/30"
       >
-        <option value="">All Classes</option>
         {classes.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}

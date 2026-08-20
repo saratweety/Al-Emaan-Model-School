@@ -43,6 +43,40 @@ export async function saveAttendance(
   return { success: true };
 }
 
+export async function updateStudentAttendance(
+  studentId: string,
+  classId: string,
+  records: { date: string; status: AttendanceStatus }[]
+): Promise<ActionResult> {
+  const { supabase, userId, error } = await requireTeacher();
+  if (error || !userId) return { success: false, error: error ?? "Not authorized." };
+
+  if (!studentId || !classId || records.length === 0) {
+    return { success: false, error: "Nothing to save." };
+  }
+
+  const sessionId = await getCurrentSessionId();
+  if (!sessionId) return { success: false, error: "No active academic session." };
+
+  const rows = records.map((r) => ({
+    student_id: studentId,
+    class_id: classId,
+    session_id: sessionId,
+    date: r.date,
+    status: r.status,
+    marked_by: userId,
+  }));
+
+  const { error: upsertError } = await supabase.from("attendance").upsert(rows, { onConflict: "student_id,date" });
+  if (upsertError) return { success: false, error: upsertError.message };
+
+  revalidatePath("/teacher/students");
+  revalidatePath("/teacher/attendance");
+  revalidatePath("/dashboard/attendance");
+  revalidatePath("/parent/attendance");
+  return { success: true };
+}
+
 export async function getAttendanceForDate(
   studentIds: string[],
   date: string

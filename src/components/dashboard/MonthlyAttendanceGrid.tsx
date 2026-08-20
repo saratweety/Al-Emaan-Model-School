@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SearchIcon, DownloadIcon, InfoIcon } from "@/components/icons";
-import type { MonthlyAttendanceGrid as MonthlyAttendanceGridData, AttendanceStatus } from "@/lib/attendance-data";
+import { useRouter } from "next/navigation";
+import { SearchIcon, DownloadIcon, InfoIcon, PencilIcon } from "@/components/icons";
+import EditStudentAttendanceModal, { type SaveAttendanceResult } from "@/components/attendance/EditStudentAttendanceModal";
+import type { MonthlyAttendanceGrid as MonthlyAttendanceGridData, MonthlyAttendanceRow, AttendanceStatus } from "@/lib/attendance-data";
 
 const STATUS_STYLES: Record<AttendanceStatus, string> = {
   present: "bg-green-100 text-green-700",
@@ -33,11 +35,29 @@ function csvEscape(value: string) {
   return value;
 }
 
-export default function MonthlyAttendanceGrid({ grid, monthLabel }: { grid: MonthlyAttendanceGridData; monthLabel: string }) {
+export default function MonthlyAttendanceGrid({
+  grid,
+  monthLabel,
+  classId,
+  onSaveAttendance,
+}: {
+  grid: MonthlyAttendanceGridData;
+  monthLabel: string;
+  classId?: string;
+  onSaveAttendance?: (
+    studentId: string,
+    classId: string,
+    records: { date: string; status: AttendanceStatus }[]
+  ) => Promise<SaveAttendanceResult>;
+}) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [onlyContinuousAbsent, setOnlyContinuousAbsent] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [page, setPage] = useState(1);
+  const [editingRow, setEditingRow] = useState<MonthlyAttendanceRow | null>(null);
+
+  const canEdit = Boolean(onSaveAttendance && classId);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -163,6 +183,7 @@ export default function MonthlyAttendanceGrid({ grid, monthLabel }: { grid: Mont
                   ))}
                   <th className="whitespace-nowrap px-3 py-3">Absent Days</th>
                   <th className="whitespace-nowrap px-3 py-3">Status</th>
+                  {canEdit && <th className="whitespace-nowrap px-3 py-3">Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -203,6 +224,18 @@ export default function MonthlyAttendanceGrid({ grid, monthLabel }: { grid: Mont
                     <td className="px-3 py-2.5">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${RISK_STYLES[r.statusLabel]}`}>{r.statusLabel}</span>
                     </td>
+                    {canEdit && (
+                      <td className="px-3 py-2.5">
+                        <button
+                          type="button"
+                          aria-label={`Edit attendance for ${r.fullName}`}
+                          onClick={() => setEditingRow(r)}
+                          className="rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -317,6 +350,20 @@ export default function MonthlyAttendanceGrid({ grid, monthLabel }: { grid: Mont
             </div>
           </div>
         </div>
+      )}
+
+      {canEdit && editingRow && (
+        <EditStudentAttendanceModal
+          open={Boolean(editingRow)}
+          onClose={() => setEditingRow(null)}
+          studentName={editingRow.fullName}
+          studentId={editingRow.studentId}
+          classId={classId!}
+          days={grid.days}
+          initialStatuses={editingRow.statusByDate}
+          onSave={onSaveAttendance!}
+          onSaved={() => router.refresh()}
+        />
       )}
     </div>
   );

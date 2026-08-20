@@ -4,13 +4,20 @@ import TeacherTopbar from "@/components/teacher/Topbar";
 import PageHeader from "@/components/dashboard/PageHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import StudentsRosterTable from "@/components/teacher/StudentsRosterTable";
+import MonthFilter from "@/components/dashboard/MonthFilter";
+import AttendanceClassFilter from "@/components/dashboard/AttendanceClassFilter";
+import MonthlyAttendanceGrid from "@/components/dashboard/MonthlyAttendanceGrid";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSessionId } from "@/lib/academic-sessions";
-import { UsersIcon, UserIcon, GraduationCapIcon, InfoIcon, BuildingIcon } from "@/components/icons";
+import { getClasses } from "@/lib/classes-data";
+import { getSessionMonths, getCurrentMonthValue, monthValueToISODate, dateToMonthValue } from "@/lib/school-calendar";
+import { getMonthlyAttendanceGrid, getLatestAttendanceMonth } from "@/lib/attendance-data";
+import { updateStudentAttendance } from "@/app/teacher/attendance/actions";
+import { UsersIcon, UserIcon, GraduationCapIcon, InfoIcon, BuildingIcon, CalendarIcon } from "@/components/icons";
 
 export const metadata: Metadata = {
   title: "My Classes | Al-Emaan Model School",
-  description: "View your assigned classes and their students.",
+  description: "View your assigned classes, their students, and monthly attendance.",
 };
 
 type Student = {
@@ -22,7 +29,12 @@ type Student = {
   gender: string | null;
 };
 
-export default async function TeacherStudentsPage() {
+export default async function TeacherStudentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string; class?: string }>;
+}) {
+  const { month, class: classParam } = await searchParams;
   const supabase = await createClient();
 
   const { data: students, error: studentsError } = await supabase
@@ -74,6 +86,29 @@ export default async function TeacherStudentsPage() {
     { icon: UserIcon, iconBg: "bg-[#e8608a]", label: "GIRLS", value: String(girls), sub: total ? `${((girls / total) * 100).toFixed(0)}%` : "0%" },
   ];
 
+  // Monthly attendance grid
+  const { classes } = await getClasses();
+  const sessionMonths = getSessionMonths();
+  const selectedClassId = classParam || classes[0]?.id || "";
+  const selectedClassName = classes.find((c) => c.id === selectedClassId)?.name ?? "";
+
+  let defaultMonthValue = getCurrentMonthValue();
+  if (!month && currentSessionId) {
+    const latestMonthISO = await getLatestAttendanceMonth(currentSessionId);
+    if (latestMonthISO) {
+      const [y, m] = latestMonthISO.split("-").map(Number);
+      defaultMonthValue = dateToMonthValue(new Date(y, m - 1, 1));
+    }
+  }
+  const selectedMonthValue = month ?? defaultMonthValue;
+  const selectedMonth = sessionMonths.find((m) => m.value === selectedMonthValue) ?? sessionMonths[sessionMonths.length - 1];
+  const selectedMonthDate = monthValueToISODate(selectedMonthValue);
+
+  const grid =
+    currentSessionId && selectedClassId
+      ? await getMonthlyAttendanceGrid(currentSessionId, selectedMonthDate, selectedClassId)
+      : { days: [], rows: [], totals: { totalStudents: 0, present: 0, absent: 0, late: 0, presentPct: "0.0", absentPct: "0.0", latePct: "0.0", continuousAbsentCount: 0 } };
+
   return (
     <div className="flex h-screen bg-[#F4F6F5]">
       <TeacherSidebar active="My Classes" />
@@ -85,7 +120,7 @@ export default async function TeacherStudentsPage() {
           <PageHeader
             icon={GraduationCapIcon}
             title="My Classes"
-            subtitle="View-only roster of students in your classes"
+            subtitle="View your assigned classes, their students, and monthly attendance"
             breadcrumb={[{ label: "Dashboard", href: "/teacher" }, { label: "My Classes" }]}
           />
 
@@ -125,6 +160,25 @@ export default async function TeacherStudentsPage() {
           ) : (
             <StudentsRosterTable students={list} classNameByStudentId={classNameByStudentId} />
           )}
+
+          <div className="space-y-4 border-t border-gray-200 pt-4">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5 text-[#13714C]" />
+              <h2 className="text-base font-bold text-[#0f4d34]">Monthly Attendance{selectedClassName ? ` — ${selectedClassName}` : ""}</h2>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <MonthFilter months={sessionMonths} value={selectedMonthValue} />
+              <AttendanceClassFilter classes={classes} value={selectedClassId} />
+            </div>
+
+            <MonthlyAttendanceGrid
+              grid={grid}
+              monthLabel={selectedMonth.label}
+              classId={selectedClassId}
+              onSaveAttendance={updateStudentAttendance}
+            />
+          </div>
         </main>
       </div>
     </div>
