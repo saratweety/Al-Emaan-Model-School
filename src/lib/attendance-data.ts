@@ -61,6 +61,7 @@ export type MonthlyAttendanceDay = { date: string; dayLabel: string; dow: string
 export type MonthlyAttendanceRow = {
   studentId: string;
   fullName: string;
+  fatherName: string;
   admissionNo: string;
   className: string;
   rollNumber: string | null;
@@ -100,7 +101,7 @@ export async function getMonthlyAttendanceGrid(
 
   let enrollmentQuery = supabase
     .from("student_enrollments")
-    .select("student_id, roll_number, class_id, classes(name), students(id, full_name, admission_no)")
+    .select("student_id, roll_number, class_id, classes(name), students(id, full_name, father_name, admission_no)")
     .eq("session_id", sessionId)
     .eq("status", "active");
   if (classId) enrollmentQuery = enrollmentQuery.eq("class_id", classId);
@@ -111,7 +112,7 @@ export async function getMonthlyAttendanceGrid(
       roll_number: string | null;
       class_id: string;
       classes: { name: string } | null;
-      students: { id: string; full_name: string; admission_no: string } | null;
+      students: { id: string; full_name: string; father_name: string; admission_no: string } | null;
     }[]
   >();
 
@@ -197,6 +198,7 @@ export async function getMonthlyAttendanceGrid(
       return {
         studentId: e.student_id,
         fullName: e.students.full_name,
+        fatherName: e.students.father_name,
         admissionNo: e.students.admission_no,
         className: e.classes?.name ?? "Unassigned",
         rollNumber: e.roll_number,
