@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSessionId } from "@/lib/academic-sessions";
+import { compareByRollNumber } from "@/lib/attendance-data";
 
 export type TeacherRosterStudent = {
   id: string;
@@ -47,7 +48,7 @@ export async function getTeacherRoster(): Promise<{ roster: TeacherRosterStudent
       classId: row.class_id,
       className: row.classes!.name,
     }))
-    .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    .sort((a, b) => a.className.localeCompare(b.className) || compareByRollNumber({ rollNumber: a.rollNumber }, { rollNumber: b.rollNumber }));
 
   return { roster, error: null };
 }

@@ -18,6 +18,15 @@ export async function getLatestAttendanceMonth(sessionId: string): Promise<strin
   return `${year}-${month}-01`;
 }
 
+export function compareByRollNumber(a: { rollNumber: string | null }, b: { rollNumber: string | null }): number {
+  const rollA = a.rollNumber !== null ? Number(a.rollNumber) : null;
+  const rollB = b.rollNumber !== null ? Number(b.rollNumber) : null;
+  if (rollA !== null && rollB !== null && !Number.isNaN(rollA) && !Number.isNaN(rollB)) return rollA - rollB;
+  if (rollA !== null) return -1;
+  if (rollB !== null) return 1;
+  return 0;
+}
+
 export type ClassRosterStudent = {
   id: string;
   full_name: string;
@@ -44,7 +53,7 @@ export async function getClassRoster(sessionId: string, classId: string): Promis
       father_name: row.students!.father_name,
       rollNumber: row.roll_number,
     }))
-    .sort((a, b) => a.full_name.localeCompare(b.full_name));
+    .sort(compareByRollNumber);
 }
 
 export type MonthlyAttendanceDay = { date: string; dayLabel: string; dow: string };
@@ -198,7 +207,7 @@ export async function getMonthlyAttendanceGrid(
         statusLabel,
       };
     })
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+    .sort((a, b) => a.className.localeCompare(b.className) || compareByRollNumber(a, b));
 
   const pct = (n: number) => (totalMarked > 0 ? ((n / totalMarked) * 100).toFixed(2) : "0.00");
 
