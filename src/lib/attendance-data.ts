@@ -1,23 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
-import { getClasses } from "@/lib/classes-data";
 
 export type AttendanceStatus = "present" | "absent" | "leave" | "late";
 
-export type ClassAttendanceRow = {
-  classId: string;
-  className: string;
-  total: number;
-  present: number;
-  absent: number;
-  leave: number;
-  pct: string;
-};
+export async function getLatestAttendanceMonth(sessionId: string): Promise<string | null> {
+  const supabase = await createClient();
 
-export type AttendanceOverview = {
-  classRows: ClassAttendanceRow[];
-  totals: { total: number; present: number; absent: number; leave: number };
-  totalPct: string;
-};
+  const { data } = await supabase
+    .from("attendance")
+    .select("date")
+    .eq("session_id", sessionId)
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ date: string }>();
+
+  if (!data) return null;
+  const [year, month] = data.date.split("-");
+  return `${year}-${month}-01`;
+}
 
 export type ClassRosterStudent = {
   id: string;
@@ -48,55 +47,173 @@ export async function getClassRoster(sessionId: string, classId: string): Promis
     .sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
-export async function getAttendanceOverview(sessionId: string, date: string): Promise<AttendanceOverview> {
+export type MonthlyAttendanceDay = { date: string; dayLabel: string; dow: string };
+
+export type MonthlyAttendanceRow = {
+  studentId: string;
+  fullName: string;
+  admissionNo: string;
+  className: string;
+  rollNumber: string | null;
+  statusByDate: Record<string, AttendanceStatus>;
+  presentPct: number;
+  absentDays: number;
+  continuousAbsent: boolean;
+  statusLabel: "Excellent" | "Good" | "At Risk";
+};
+
+export type MonthlyAttendanceGrid = {
+  days: MonthlyAttendanceDay[];
+  rows: MonthlyAttendanceRow[];
+  totals: {
+    totalStudents: number;
+    present: number;
+    absent: number;
+    late: number;
+    presentPct: string;
+    absentPct: string;
+    latePct: string;
+    continuousAbsentCount: number;
+  };
+};
+
+export async function getMonthlyAttendanceGrid(
+  sessionId: string,
+  monthDate: string,
+  classId: string | null
+): Promise<MonthlyAttendanceGrid> {
   const supabase = await createClient();
 
-  const [{ classes }, { data: enrollments }, { data: attendance }] = await Promise.all([
-    getClasses(),
-    supabase
-      .from("student_enrollments")
-      .select("student_id, class_id")
-      .eq("session_id", sessionId)
-      .eq("status", "active")
-      .returns<{ student_id: string; class_id: string }[]>(),
-    supabase
-      .from("attendance")
-      .select("student_id, class_id, status")
-      .eq("session_id", sessionId)
-      .eq("date", date)
-      .returns<{ student_id: string; class_id: string; status: AttendanceStatus }[]>(),
-  ]);
+  const [year, month] = monthDate.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const rangeStart = monthDate;
+  const rangeEnd = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
 
-  const statusByStudent = new Map<string, AttendanceStatus>();
-  for (const row of attendance ?? []) statusByStudent.set(row.student_id, row.status);
+  let enrollmentQuery = supabase
+    .from("student_enrollments")
+    .select("student_id, roll_number, class_id, classes(name), students(id, full_name, admission_no)")
+    .eq("session_id", sessionId)
+    .eq("status", "active");
+  if (classId) enrollmentQuery = enrollmentQuery.eq("class_id", classId);
 
-  const classRows: ClassAttendanceRow[] = classes.map((c) => {
-    const studentsInClass = (enrollments ?? []).filter((e) => e.class_id === c.id);
-    const total = studentsInClass.length;
-    let present = 0;
-    let absent = 0;
-    let leave = 0;
-    for (const e of studentsInClass) {
-      const status = statusByStudent.get(e.student_id);
-      if (status === "present" || status === "late") present += 1;
-      else if (status === "absent") absent += 1;
-      else if (status === "leave") leave += 1;
-    }
-    const pct = total > 0 ? `${((present / total) * 100).toFixed(1)}%` : "—";
-    return { classId: c.id, className: c.name, total, present, absent, leave, pct };
-  });
+  const { data: enrollments } = await enrollmentQuery.returns<
+    {
+      student_id: string;
+      roll_number: string | null;
+      class_id: string;
+      classes: { name: string } | null;
+      students: { id: string; full_name: string; admission_no: string } | null;
+    }[]
+  >();
 
-  const totals = classRows.reduce(
-    (acc, row) => ({
-      total: acc.total + row.total,
-      present: acc.present + row.present,
-      absent: acc.absent + row.absent,
-      leave: acc.leave + row.leave,
-    }),
-    { total: 0, present: 0, absent: 0, leave: 0 }
+  const empty: MonthlyAttendanceGrid = {
+    days: [],
+    rows: [],
+    totals: { totalStudents: 0, present: 0, absent: 0, late: 0, presentPct: "0.0", absentPct: "0.0", latePct: "0.0", continuousAbsentCount: 0 },
+  };
+
+  const validEnrollments = (enrollments ?? []).filter(
+    (e): e is typeof e & { students: NonNullable<(typeof e)["students"]> } => e.students !== null
   );
+  if (validEnrollments.length === 0) return empty;
 
-  const totalPct = totals.total > 0 ? ((totals.present / totals.total) * 100).toFixed(1) : "0.0";
+  const studentIds = validEnrollments.map((e) => e.student_id);
 
-  return { classRows, totals, totalPct };
+  const { data: attendanceRows } = await supabase
+    .from("attendance")
+    .select("student_id, date, status")
+    .in("student_id", studentIds)
+    .gte("date", rangeStart)
+    .lte("date", rangeEnd)
+    .returns<{ student_id: string; date: string; status: AttendanceStatus }[]>();
+
+  const marks = attendanceRows ?? [];
+  const dateSet = new Set(marks.map((r) => r.date));
+  const days: MonthlyAttendanceDay[] = Array.from(dateSet)
+    .sort()
+    .map((date) => {
+      const d = new Date(`${date}T00:00:00`);
+      return { date, dayLabel: String(d.getDate()), dow: d.toLocaleDateString("en-US", { weekday: "short" }) };
+    });
+
+  const statusByStudent = new Map<string, Map<string, AttendanceStatus>>();
+  for (const r of marks) {
+    if (!statusByStudent.has(r.student_id)) statusByStudent.set(r.student_id, new Map());
+    statusByStudent.get(r.student_id)!.set(r.date, r.status);
+  }
+
+  let totalPresent = 0;
+  let totalAbsent = 0;
+  let totalLate = 0;
+  let totalMarked = 0;
+  let continuousAbsentCount = 0;
+
+  const rows: MonthlyAttendanceRow[] = validEnrollments
+    .map((e) => {
+      const smap = statusByStudent.get(e.student_id) ?? new Map<string, AttendanceStatus>();
+      let present = 0;
+      let absent = 0;
+      let late = 0;
+      let marked = 0;
+      let streak = 0;
+      let maxStreak = 0;
+
+      for (const day of days) {
+        const status = smap.get(day.date);
+        if (!status) {
+          streak = 0;
+          continue;
+        }
+        marked += 1;
+        if (status === "present") present += 1;
+        else if (status === "absent") {
+          absent += 1;
+          streak += 1;
+          maxStreak = Math.max(maxStreak, streak);
+        } else if (status === "late") late += 1;
+        if (status !== "absent") streak = 0;
+      }
+
+      totalPresent += present;
+      totalAbsent += absent;
+      totalLate += late;
+      totalMarked += marked;
+
+      const presentPct = marked > 0 ? Math.round((present / marked) * 100) : 0;
+      const continuousAbsent = maxStreak >= 2;
+      if (continuousAbsent) continuousAbsentCount += 1;
+      const statusLabel: MonthlyAttendanceRow["statusLabel"] =
+        presentPct >= 95 ? "Excellent" : presentPct >= 80 ? "Good" : "At Risk";
+
+      return {
+        studentId: e.student_id,
+        fullName: e.students.full_name,
+        admissionNo: e.students.admission_no,
+        className: e.classes?.name ?? "Unassigned",
+        rollNumber: e.roll_number,
+        statusByDate: Object.fromEntries(smap),
+        presentPct,
+        absentDays: absent,
+        continuousAbsent,
+        statusLabel,
+      };
+    })
+    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+  const pct = (n: number) => (totalMarked > 0 ? ((n / totalMarked) * 100).toFixed(2) : "0.00");
+
+  return {
+    days,
+    rows,
+    totals: {
+      totalStudents: rows.length,
+      present: totalPresent,
+      absent: totalAbsent,
+      late: totalLate,
+      presentPct: pct(totalPresent),
+      absentPct: pct(totalAbsent),
+      latePct: pct(totalLate),
+      continuousAbsentCount,
+    },
+  };
 }
