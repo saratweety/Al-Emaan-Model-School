@@ -103,6 +103,27 @@ export async function updateTeacher(teacherId: string, formData: FormData): Prom
   return { success: true };
 }
 
+export async function setTeacherPassword(teacherId: string, newPassword: string): Promise<ActionResult> {
+  const { error } = await requirePrincipal();
+  if (error) return { success: false, error };
+
+  if (newPassword.length < 6) {
+    return { success: false, error: "Password must be at least 6 characters." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Admin client is not configured." };
+  }
+
+  const { error: authError } = await admin.auth.admin.updateUserById(teacherId, { password: newPassword });
+  if (authError) return { success: false, error: authError.message };
+
+  return { success: true };
+}
+
 export async function deleteTeacher(teacherId: string): Promise<ActionResult> {
   const { error } = await requirePrincipal();
   if (error) return { success: false, error };
