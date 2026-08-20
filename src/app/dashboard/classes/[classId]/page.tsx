@@ -19,6 +19,7 @@ import {
 } from "@/components/icons";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentSessionId } from "@/lib/academic-sessions";
+import { compareByRollNumber } from "@/lib/attendance-data";
 
 type EnrolledStudent = ClassStudent & { gender: string | null };
 
@@ -63,19 +64,19 @@ export default async function ClassDetailPage({
   if (currentSessionId) {
     const { data, error: queryError } = await supabase
       .from("student_enrollments")
-      .select("students(id, full_name, father_name, contact_number, gender)")
+      .select("roll_number, students(id, full_name, father_name, contact_number, gender)")
       .eq("class_id", classId)
       .eq("session_id", currentSessionId)
       .eq("status", "active")
-      .returns<{ students: EnrolledStudent | null }[]>();
+      .returns<{ roll_number: string | null; students: Omit<EnrolledStudent, "rollNumber"> | null }[]>();
 
     if (queryError) {
       error = queryError.message;
     } else {
       list = (data ?? [])
-        .map((e) => e.students)
-        .filter((s): s is EnrolledStudent => s !== null)
-        .sort((a, b) => a.full_name.localeCompare(b.full_name));
+        .filter((e): e is typeof e & { students: Omit<EnrolledStudent, "rollNumber"> } => e.students !== null)
+        .map((e) => ({ ...e.students, rollNumber: e.roll_number }))
+        .sort(compareByRollNumber);
     }
   }
 
