@@ -179,7 +179,16 @@ export async function sendParentPasswordReset(parentId: string): Promise<ActionR
   const headerList = await headers();
   const origin = headerList.get("origin") ?? `https://${headerList.get("host")}`;
 
-  const { error: resetError } = await supabase.auth.resetPasswordForEmail(profile.username, {
+  // The admin client (implicit flow) keeps the link usable in the parent's own
+  // browser; the SSR client would tie a PKCE verifier to the principal's cookies.
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Server is not configured." };
+  }
+
+  const { error: resetError } = await admin.auth.resetPasswordForEmail(profile.username, {
     redirectTo: `${origin}/reset-password`,
   });
 

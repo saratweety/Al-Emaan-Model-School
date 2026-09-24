@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import MobileSidebarShell from "@/components/dashboard/MobileSidebarShell";
 import {
   HomeIcon,
   GraduationCapIcon,
@@ -46,7 +47,7 @@ export default function Sidebar({
   items?: SidebarNavItem[];
 }) {
   return (
-    <aside className="sidebar-scroll relative hidden h-screen w-[230px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-gradient-to-b from-[#13714C] via-[#3AB67D] to-[#A2E494] md:flex">
+    <MobileSidebarShell>
       {/* Brand */}
       <div className="flex shrink-0 flex-col items-center px-[18px] pb-5 pt-[26px] text-center">
         <div className="mb-[10px] flex h-[66px] w-[66px] items-center justify-center overflow-hidden rounded-full bg-white shadow-[0_3px_10px_rgba(0,0,0,0.25)]">
@@ -109,6 +110,6 @@ export default function Sidebar({
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0c3d2b]/0 from-55% to-[#0c3d2b]/55" />
       </div>
-    </aside>
+    </MobileSidebarShell>
   );
 }

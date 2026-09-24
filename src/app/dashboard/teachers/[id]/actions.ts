@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { requirePrincipal } from "@/lib/principal-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -118,5 +119,30 @@ export async function deleteTeacher(teacherId: string): Promise<ActionResult> {
   if (deleteError) return { success: false, error: deleteError.message };
 
   revalidatePath("/dashboard/teachers");
+  return { success: true };
+}
+
+export async function sendTeacherPasswordReset(teacherId: string): Promise<ActionResult> {
+  const { supabase, userId, error } = await requirePrincipal();
+  if (error || !userId) return { success: false, error: error ?? "Not authorized." };
+
+  const { data: profile } = await supabase.from("profiles").select("username").eq("id", teacherId).maybeSingle();
+  if (!profile?.username) return { success: false, error: "This teacher has no email on file." };
+
+  const headerList = await headers();
+  const origin = headerList.get("origin") ?? `https://${headerList.get("host")}`;
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Server is not configured." };
+  }
+
+  const { error: resetError } = await admin.auth.resetPasswordForEmail(profile.username, {
+    redirectTo: `${origin}/reset-password`,
+  });
+
+  if (resetError) return { success: false, error: resetError.message };
   return { success: true };
 }
