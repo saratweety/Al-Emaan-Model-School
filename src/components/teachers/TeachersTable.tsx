@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import PersonFilesButton from "@/components/dashboard/PersonFilesButton";
 import TeacherRowDeleteButton from "@/components/teachers/TeacherRowDeleteButton";
+import TeacherRowResetPasswordButton from "@/components/teachers/TeacherRowResetPasswordButton";
 import { SearchIcon, UsersIcon, BookIcon, ChevronDownIcon, EyeOutlineIcon, PencilIcon } from "@/components/icons";
 
 export type TeacherRow = {
@@ -185,6 +186,7 @@ export default function TeachersTable({
                         >
                           <PencilIcon className="h-4 w-4" />
                         </Link>
+                        <TeacherRowResetPasswordButton teacherId={t.id} teacherName={t.name} />
                         <TeacherRowDeleteButton teacherId={t.id} teacherName={t.name} />
                       </div>
                     </td>

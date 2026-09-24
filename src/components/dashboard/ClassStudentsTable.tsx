@@ -12,6 +12,7 @@ export type ClassStudent = {
   full_name: string;
   father_name: string;
   contact_number: string | null;
+  rollNumber: string | null;
 };
 
 const AVATAR_COLORS = ["bg-teal-500", "bg-blue-500", "bg-[#e8608a]", "bg-purple-500", "bg-orange-500"];
@@ -65,6 +66,7 @@ export default function ClassStudentsTable({ students }: { students: ClassStuden
           <thead>
             <tr className="rounded-xl bg-[#A2E494]/15 text-xs font-bold uppercase tracking-wide text-[#0f4d34]/70">
               <th className="rounded-l-xl px-3 py-3">#</th>
+              <th className="px-3 py-3">Roll No.</th>
               <th className="px-3 py-3">Student Name</th>
               <th className="px-3 py-3">Father Name</th>
               <th className="px-3 py-3">Contact</th>
@@ -79,6 +81,7 @@ export default function ClassStudentsTable({ students }: { students: ClassStuden
                 className={`border-b border-gray-50 last:border-0 ${pendingDelete?.id === s.id ? "opacity-50" : ""}`}
               >
                 <td className="px-3 py-3 text-gray-400">{i + 1}</td>
+                <td className="px-3 py-3 text-gray-600">{s.rollNumber ?? "—"}</td>
                 <td className="px-3 py-3">
                   <div className="flex items-center gap-3">
                     <span

@@ -13,6 +13,7 @@ export async function getClasses(): Promise<{ classes: SchoolClass[]; error: str
     .from("classes")
     .select("id, name, display_order")
     .order("display_order", { ascending: true })
+    .order("name", { ascending: true })
     .returns<SchoolClass[]>();
 
   return { classes: data ?? [], error: error?.message ?? null };

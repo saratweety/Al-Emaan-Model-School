@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { requestPasswordReset } from "@/lib/forgot-password-actions";
 import { useToast } from "@/lib/toast";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -46,6 +47,7 @@ export default function AuthCard() {
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSending, setForgotSending] = useState(false);
+  const [contactAdminOpen, setContactAdminOpen] = useState(false);
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -112,21 +114,27 @@ export default function AuthCard() {
 
     setForgotSending(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const result = await requestPasswordReset(
+      forgotEmail,
+      `${window.location.origin}/reset-password`
+    );
 
     setForgotSending(false);
 
-    if (error) {
-      showToast(error.message, "error");
+    if (result.status === "error") {
+      showToast(result.message, "error");
+      return;
+    }
+
+    setForgotOpen(false);
+    setForgotEmail("");
+
+    if (result.status === "contact_admin") {
+      setContactAdminOpen(true);
       return;
     }
 
     showToast("If that email is registered, a reset link has been sent.", "success");
-    setForgotOpen(false);
-    setForgotEmail("");
   }
 
   return (
@@ -322,6 +330,34 @@ export default function AuthCard() {
             </div>
           </form>
         )}
+      </Modal>
+
+      <Modal
+        open={contactAdminOpen}
+        onClose={() => setContactAdminOpen(false)}
+        title="Contact the admin office"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Teacher and parent passwords can&apos;t be reset online. Please contact the school
+            admin office and they&apos;ll help you regain access.
+          </p>
+          <div className="space-y-2 rounded-xl bg-gray-50 p-4 text-sm text-gray-700">
+            <div className="flex items-center gap-2">
+              <PhoneIcon className="h-4 w-4 text-[#13714C]" />
+              <span>0341 8298314 / 0345 2027799</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <MailIcon className="h-4 w-4 text-[#13714C]" />
+              <span>info@alemaanschool.edu.pk</span>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button type="button" onClick={() => setContactAdminOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

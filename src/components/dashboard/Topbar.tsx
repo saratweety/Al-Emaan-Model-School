@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MenuIcon, UserIcon, ChevronDownIcon, LockIcon, DoorExitIcon } from "@/components/icons";
 import { formatLongDate, getToday } from "@/lib/school-calendar";
 import { createClient } from "@/lib/supabase/client";
+import { toggleMobileSidebar } from "@/lib/mobile-sidebar";
 import ChangePasswordModal from "./ChangePasswordModal";
 
 function getGreeting(hour: number) {
@@ -55,6 +56,7 @@ export default function Topbar({
       <button
         type="button"
         aria-label="Toggle menu"
+        onClick={toggleMobileSidebar}
         className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 md:hidden"
       >
         <MenuIcon className="h-5 w-5" />

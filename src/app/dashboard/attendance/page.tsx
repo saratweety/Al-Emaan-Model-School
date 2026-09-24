@@ -11,6 +11,7 @@ import { getSessionMonths, getCurrentMonthValue, monthValueToISODate, dateToMont
 import { getClasses } from "@/lib/classes-data";
 import { getCurrentSessionId } from "@/lib/academic-sessions";
 import { getMonthlyAttendanceGrid, getLatestAttendanceMonth } from "@/lib/attendance-data";
+import { updateStudentAttendance } from "./actions";
 
 export const metadata: Metadata = {
   title: "Attendance | Al-Emaan Model School",
@@ -22,10 +23,12 @@ export default async function AttendancePage({
 }: {
   searchParams: Promise<{ month?: string; class?: string }>;
 }) {
-  const { month, class: classId } = await searchParams;
+  const { month, class: classParam } = await searchParams;
 
   const [{ classes }, sessionId] = await Promise.all([getClasses(), getCurrentSessionId()]);
   const sessionMonths = getSessionMonths();
+  const selectedClassId = classParam || classes[0]?.id || "";
+  const selectedClassName = classes.find((c) => c.id === selectedClassId)?.name ?? "";
 
   let defaultMonthValue = getCurrentMonthValue();
   if (!month && sessionId) {
@@ -40,14 +43,14 @@ export default async function AttendancePage({
   const selectedMonth = sessionMonths.find((m) => m.value === selectedMonthValue) ?? sessionMonths[sessionMonths.length - 1];
   const selectedMonthDate = monthValueToISODate(selectedMonthValue);
 
-  const grid = sessionId
-    ? await getMonthlyAttendanceGrid(sessionId, selectedMonthDate, classId || null)
+  const grid = sessionId && selectedClassId
+    ? await getMonthlyAttendanceGrid(sessionId, selectedMonthDate, selectedClassId)
     : { days: [], rows: [], totals: { totalStudents: 0, present: 0, absent: 0, late: 0, presentPct: "0.0", absentPct: "0.0", latePct: "0.0", continuousAbsentCount: 0 } };
 
   const { totals } = grid;
 
   const statCards = [
-    { icon: UsersIcon, iconBg: "bg-[#13714C]", label: "TOTAL STUDENTS", value: String(totals.totalStudents), sub: "All Classes" },
+    { icon: UsersIcon, iconBg: "bg-[#13714C]", label: "TOTAL STUDENTS", value: String(totals.totalStudents), sub: selectedClassName || "—" },
     { icon: ShieldCheckIcon, iconBg: "bg-[#3AB67D]", label: "PRESENT", value: String(totals.present), sub: `${totals.presentPct}%` },
     { icon: XCircleIcon, iconBg: "bg-[#e0645f]", label: "ABSENT", value: String(totals.absent), valueColor: "text-red-600" as const, sub: `${totals.absentPct}%` },
     { icon: ClockIcon, iconBg: "bg-amber-500", label: "LATE", value: String(totals.late), sub: `${totals.latePct}%` },
@@ -90,10 +93,15 @@ export default async function AttendancePage({
 
           <div className="flex flex-wrap items-center gap-3">
             <MonthFilter months={sessionMonths} value={selectedMonthValue} />
-            <AttendanceClassFilter classes={classes} value={classId ?? ""} />
+            <AttendanceClassFilter classes={classes} value={selectedClassId} />
           </div>
 
-          <MonthlyAttendanceGrid grid={grid} monthLabel={selectedMonth.label} />
+          <MonthlyAttendanceGrid
+            grid={grid}
+            monthLabel={selectedMonth.label}
+            classId={selectedClassId}
+            onSaveAttendance={updateStudentAttendance}
+          />
         </main>
       </div>
     </div>
